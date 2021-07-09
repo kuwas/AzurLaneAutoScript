@@ -81,17 +81,18 @@ class AutoSearchCombat(Combat):
             if self.is_in_auto_search_menu() or self._handle_auto_search_menu_missing():
                 raise CampaignEnd
 
-    def auto_search_combat_execute(self, emotion_reduce, fleet_index):
+    def auto_search_combat_execute(self, emotion_reduce=False, fleet_index=1, save_get_items=False):
         """
         Args:
             emotion_reduce (bool):
             fleet_index (int):
+            save_get_items (bool):
 
         Pages:
             in: is_combat_loading()
             out: combat status
         """
-        logger.info('Auto search combat loading')
+        logger.info('Autosearch combat preparation')
         self.device.screenshot_interval_set(self.config.COMBAT_SCREENSHOT_INTERVAL)
         while 1:
             self.device.screenshot()
@@ -103,13 +104,12 @@ class AutoSearchCombat(Combat):
             if self.is_in_auto_search_menu() or self._handle_auto_search_menu_missing():
                 raise CampaignEnd
             if self.is_combat_executing():
+                if emotion_reduce:
+                    self.emotion.reduce(fleet_index)
                 break
 
-        logger.info('Auto Search combat execute')
+        logger.info('Autosearch combat execute')
         self.submarine_call_reset()
-        if emotion_reduce:
-            self.emotion.reduce(fleet_index)
-
         while 1:
             self.device.screenshot()
 
@@ -120,28 +120,54 @@ class AutoSearchCombat(Combat):
             if self.is_in_auto_search_menu() or self._handle_auto_search_menu_missing():
                 self.device.screenshot_interval_set(0)
                 raise CampaignEnd
-            if self.is_combat_executing():
-                continue
-            if self.appear(BATTLE_STATUS_S) or self.appear(BATTLE_STATUS_A) or self.appear(BATTLE_STATUS_B) \
-                    or self.appear(EXP_INFO_S) or self.appear(EXP_INFO_A) or self.appear(EXP_INFO_B) \
+            # if self.is_combat_executing():
+            #     continue
+            # if self.handle_battle_status(save_get_items=save_get_items) \
+            if self.appear(BATTLE_STATUS_S) \
+                    or self.appear(BATTLE_STATUS_A) \
+                    or self.appear(BATTLE_STATUS_B) \
+                    or self.appear(EXP_INFO_S) \
+                    or self.appear(EXP_INFO_A) \
+                    or self.appear(EXP_INFO_B) \
+                    or self.handle_get_items(save_get_items=save_get_items) \
                     or self.is_auto_search_running():
                 self.device.screenshot_interval_set(0)
                 break
 
-    def auto_search_combat_status(self, skip_first_screenshot=True):
+    def auto_search_combat_status(self, save_get_items=False):
         """
+        Args:
+            save_get_items (bool):
+
         Pages:
             in: any
             out: is_auto_search_running()
         """
-        logger.info('Auto Search combat status')
+        logger.info('Autosearch combat status')
+        exp_info = False  # This is for the white screen bug in game
         while 1:
-            if skip_first_screenshot:
-                skip_first_screenshot = False
-            else:
-                self.device.screenshot()
+            self.device.screenshot()
 
-            if self.handle_get_ship():
+            # Combat status
+            if not exp_info and self.handle_get_ship(save_get_items=save_get_items):
+                continue
+            if self.handle_get_items(save_get_items=save_get_items):
+                continue
+            if self.handle_battle_status(save_get_items=save_get_items):
+                continue
+            if self.handle_popup_confirm():
+                continue
+            if self.handle_exp_info():
+                exp_info = True
+                continue
+            if self.handle_urgent_commission(save_get_items=save_get_items):
+                continue
+            if self.handle_story_skip():
+                continue
+            if self.handle_guild_popup_cancel():
+                self.config.GUILD_POPUP_TRIGGERED = True
+                continue
+            if self.handle_auto_search_map_option():
                 continue
 
             # End
@@ -150,7 +176,7 @@ class AutoSearchCombat(Combat):
             if self.is_in_auto_search_menu() or self._handle_auto_search_menu_missing():
                 raise CampaignEnd
 
-    def auto_search_combat(self, emotion_reduce=None, fleet_index=1):
+    def auto_search_combat(self, emotion_reduce=None, save_get_items=None, fleet_index=1):
         """
         Execute a combat.
 
@@ -158,9 +184,10 @@ class AutoSearchCombat(Combat):
         It's not the fleet index in fleet preparation or auto search setting.
         """
         emotion_reduce = emotion_reduce if emotion_reduce is not None else self.config.ENABLE_EMOTION_REDUCE
+        save_get_items = save_get_items if save_get_items is not None else self.config.ENABLE_SAVE_GET_ITEMS
 
         self.device.stuck_record_clear()
-        self.auto_search_combat_execute(emotion_reduce=emotion_reduce, fleet_index=fleet_index)
-        self.auto_search_combat_status()
+        self.auto_search_combat_execute(emotion_reduce=emotion_reduce, fleet_index=fleet_index, save_get_items=save_get_items)
+        self.auto_search_combat_status(save_get_items=save_get_items)
 
-        logger.info('Combat end.')
+        logger.info('Autosearch combat end')

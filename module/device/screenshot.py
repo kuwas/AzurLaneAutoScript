@@ -15,7 +15,7 @@ class Screenshot(AScreenCap):
     _screenshot_method = 0
     _screenshot_method_fixed = False
 
-    _screenshot_interval_timer = Timer(0.1)
+    _screenshot_interval_timer = Timer(0.03)
     _last_save_time = {}
     image: Image.Image
 
@@ -109,11 +109,7 @@ class Screenshot(AScreenCap):
         self._last_save_time[genre] = 0
 
     def screenshot_interval_set(self, interval):
-        interval = max(interval, 0.1)
+        interval = max(interval, 0.03)
         if interval != self._screenshot_interval_timer.limit:
-            if self.config.ENABLE_AUTO_SEARCH:
-                interval = min(interval, 1.0)
-                logger.info(f'Screenshot interval set to {interval}s, limited to 1.0s if enable auto search')
-            else:
-                logger.info(f'Screenshot interval set to {interval}s')
+            logger.info(f'Screenshot interval set to {interval}s')
             self._screenshot_interval_timer.limit = interval
